@@ -73,12 +73,8 @@ public class HelloSpark {
                 String summary = request.queryParams("article-summary");
                 String content = request.queryParams("article-content");
 
-                Article article = new Article.ArticleBuilder()
-                        .setTitle(title)
-                        .setSummary(summary)
-                        .setContent(content)
-                        .setId(HelloSpark.articles.size() + 1)
-                        .build();
+                Article article = new Article(title, summary, content, HelloSpark.articles.size()+1);
+
                 HelloSpark.articles.addFirst(article);
 
                 response.status(201);
@@ -87,7 +83,7 @@ public class HelloSpark {
             }
         });
 
-        get(new Route("/article/read:id") {
+        get(new Route("/article/read/:id") {
             @Override
             public Object handle(Request request, Response response) {
                 Integer id = Integer.parseInt(request.params(":id"));
@@ -114,14 +110,17 @@ public class HelloSpark {
                 for (Article article : HelloSpark.articles) {
                     if (id.equals(article.getId())) {
                         form.append("<form id='article-create-form' method='POST' action='/article/update/:id'>")
-                                .append("Title: <input type='text' name='article-title' value='").append(article.getTitle()).append("' />")
+                                .append("Title: <input type='text' name='article-title' value='")
+                                .append(article.getTitle()).append("' />")
                                 .append("<br/>")
-                                .append("Summary: <input type='text' name='article-summary' value='").append(article.getSummary()).append("' />")
+                                .append("Summary: <input type='text' name='article-summary' value='")
+                                .append(article.getSummary()).append("' />")
                                 .append("<input type='hidden' name='article-id' value='").append(article.getId()).append("' />")
                                 .append("<br/>")
                                 .append("</form>")
-                                .append("<textarea name='article-content' rows='4' cols='50' form='article-create-form'>").append(article.getContent())
-                                .append("</textarea")
+                                .append("<textarea name='article-content' rows='4' cols='50' form='article-create-form'>")
+                                .append(article.getContent())
+                                .append("</textarea>")
                                 .append("<br/>")
                                 .append("<input type='submit' value='Update' form='article-create-form' />");
                         break;
@@ -131,24 +130,19 @@ public class HelloSpark {
             }
         });
 
-        get(new Route("/article/update/:id") {
+        post(new Route("/article/update/:id") {
             @Override
             public Object handle(Request request, Response response) {
-                String title = request.queryParams("article-title");
-                String summary = request.queryParams("article-summary");
-                String content = request.queryParams("article-content");
-                Integer id = Integer.parseInt(request.queryParams("article-id"));
+                Integer id      = Integer.parseInt(request.queryParams("article-id"));
+                String title    = request.queryParams("article-title");
+                String summary  = request.queryParams("article-summary");
+                String content  = request.queryParams("article-content");
 
                 for (Article article : HelloSpark.articles) {
                     if (id.equals(article.getId())) {
-                        article.delete();
-                        Article newArticle = new Article.ArticleBuilder()
-                                .setTitle(title)
-                                .setSummary(summary)
-                                .setContent(content)
-                                .setId(HelloSpark.articles.size() + 1)
-                                .build();
-                        HelloSpark.articles.addFirst(article);
+                        article.setTitle(title);
+                        article.setContent(content);
+                        article.setSummary(summary);
                     }
                 }
                 response.status(200);
@@ -157,7 +151,7 @@ public class HelloSpark {
             }
         });
 
-        get(new Route("/article/delete:id") {
+        get(new Route("/article/delete/:id") {
             @Override
             public Object handle(Request request, Response response) {
                 Integer id = Integer.parseInt(request.params(":id"));
