@@ -16,20 +16,21 @@ import static spark.Spark.post;
 
 public class HelloSpark {
 
-    public static Deque<Article> articles = new ArrayDeque<Article>();
+    public static ArticleDbService<Article> articleArticleDbService = new ArticleServletDao<>();
 
     public static void main(String[] args) {
-        get(new Route("/") {
+        get(new FreeMarkerRoute("/") {
             @Override
             public ModelAndView handle(Request request, Response response) {
                 Map<String, Object> viewObjects = new HashMap<>();
+                ArrayList<Article> articles = articleArticleDbService.readAll();
 
-                if (HelloSpark.articles.isEmpty()) {
+                if (articles.isEmpty()) {
                     viewObjects.put("hasNoArticles","Welcome, please click \"Write Article\" to begin.");
                 } else {
-                    ArrayList<Article> showArticles = new ArrayList<>();
+                    Deque<Article> showArticles = new ArrayDeque<>();
 
-                    for (Article article : HelloSpark.articles) {
+                    for (Article article : articles) {
                         if(article.readable()) {
                             showArticles.add(article);
                         }
@@ -42,34 +43,26 @@ public class HelloSpark {
             }
         });
 
-        get(new Route("/article/create") {
+        get(new FreeMarkerRoute("/article/create") {
             @Override
             public Object handle(Request request, Response response) {
-                StringBuilder form = new StringBuilder();
+                Map<String, Object> viewObjects = new HashMap<>();
+                viewObjects.put("templateName", "articleForm.ftl");
 
-                form.append("<form id='article-create-form' method='POST' action='/article/create'>")
-                        .append("Title: <input type='text' name='article-title' />")
-                        .append("<br/>")
-                        .append("Summary: <input type='text' name='article-summary' />")
-                        .append("<br/>")
-                        .append("</form>")
-                        .append("<textarea name='article-content' rows='4' cols='50' form='article-create-form'></textarea>")
-                        .append("<br/>")
-                        .append("<input type='submit' value='Publish' form='article-create-form' />");
-                return form.toString();
+                return modelAndView(viewObjects, "layout.ftl");
             }
         });
 
-        post(new Route("/article/create") {
+        post(new FreeMarkerRoute("/article/create") {
             @Override
             public Object handle(Request request, Response response) {
                 String title = request.queryParams("article-title");
                 String summary = request.queryParams("article-summary");
                 String content = request.queryParams("article-content");
 
-                Article article = new Article(title, summary, content, HelloSpark.articles.size()+1);
+                Article article = new Article(title, summary, content, articleArticleDbService.readAll().size());
 
-                HelloSpark.articles.addFirst(article);
+                articleArticleDbService.create(article);
 
                 response.status(201);
                 response.redirect("/");
@@ -77,50 +70,28 @@ public class HelloSpark {
             }
         });
 
-        get(new Route("/article/read/:id") {
+        get(new FreeMarkerRoute("/article/read/:id") {
             @Override
             public Object handle(Request request, Response response) {
                 Integer id = Integer.parseInt(request.params(":id"));
-                StringBuilder html = new StringBuilder();
+                Map<String, Object> viewObjects = new HashMap<>();
 
-                for (Article article : HelloSpark.articles) {
-                    if (id.equals(article.getId())) {
-                        html.append("<a href='/'>Home</a>").append("<p/>")
-                                .append("title: ").append(article.getTitle()).append("<br/>")
-                                .append(article.getCreatedAt())
-                                .append("<p>").append(article.getContent()).append("</p>");
-                        break;
-                    }
-                }
-                return html.toString();
+                viewObjects.put("templateName", "articleRead.ftl");
+
+                viewObjects.put("article",articleArticleDbService.readOne(id));
+                return modelAndView(viewObjects, "layout.ftl");
             }
         });
-        get(new Route("/article/update/:id") {
+
+        get(new FreeMarkerRoute("/article/update/:id") {
             @Override
             public Object handle(Request request, Response response) {
                 Integer id = Integer.parseInt(request.params(":id"));
-                StringBuilder form = new StringBuilder();
+                Map<String, Object> viewObjects = new HashMap<>();
+                viewObjects.put("templateName", "articleForm.ftl");
 
-                for (Article article : HelloSpark.articles) {
-                    if (id.equals(article.getId())) {
-                        form.append("<form id='article-create-form' method='POST' action='/article/update/:id'>")
-                                .append("Title: <input type='text' name='article-title' value='")
-                                .append(article.getTitle()).append("' />")
-                                .append("<br/>")
-                                .append("Summary: <input type='text' name='article-summary' value='")
-                                .append(article.getSummary()).append("' />")
-                                .append("<input type='hidden' name='article-id' value='").append(article.getId()).append("' />")
-                                .append("<br/>")
-                                .append("</form>")
-                                .append("<textarea name='article-content' rows='4' cols='50' form='article-create-form'>")
-                                .append(article.getContent())
-                                .append("</textarea>")
-                                .append("<br/>")
-                                .append("<input type='submit' value='Update' form='article-create-form' />");
-                        break;
-                    }
-                }
-                return form.toString();
+                viewObjects.put("article", articleArticleDbService.readOne(id));
+                return modelAndView(viewObjects, "layout.ftl");
             }
         });
 
@@ -132,13 +103,7 @@ public class HelloSpark {
                 String summary  = request.queryParams("article-summary");
                 String content  = request.queryParams("article-content");
 
-                for (Article article : HelloSpark.articles) {
-                    if (id.equals(article.getId())) {
-                        article.setTitle(title);
-                        article.setContent(content);
-                        article.setSummary(summary);
-                    }
-                }
+                articleArticleDbService.update(id, title, summary, content);
                 response.status(200);
                 response.redirect("/");
                 return "";
@@ -149,29 +114,12 @@ public class HelloSpark {
             @Override
             public Object handle(Request request, Response response) {
                 Integer id = Integer.parseInt(request.params(":id"));
-                for (Article article : HelloSpark.articles) {
-                    if (id.equals(article.getId())) {
-                        article.delete();
-                    }
-                }
+                articleArticleDbService.delete(id);
+
                 response.status(200);
                 response.redirect("/");
                 return "";
             }
         });
-
-        get(new FreeMarkerRoute("/freemarker") {
-            @Override
-            public Object handle(Request request, Response response) {
-                Map<String, Object> attributes = new HashMap<>();
-                attributes.put("blogTitle", "Spark Blog!");
-                attributes.put("descriptionTitle", "bootstrap?!?! what!");
-                attributes.put("descriptionBody1", "twitter bootstrap is cool");
-                attributes.put("descriptionBody2", "let's get rolling!");
-
-                return modelAndView(attributes, "layout.ftl");
-            }
-        });
-
     }
 }
