@@ -3,12 +3,13 @@
  */
 package com.mccodecraft.HelloSpark;
 
+import spark.ModelAndView;
 import spark.Request;
 import spark.Response;
 import spark.Route;
+import spark.template.freemarker.FreeMarkerRoute;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.*;
 
 import static spark.Spark.get;
 import static spark.Spark.post;
@@ -20,31 +21,24 @@ public class HelloSpark {
     public static void main(String[] args) {
         get(new Route("/") {
             @Override
-            public Object handle(Request request, Response response) {
-                String title = "My Blog";
-                String createArticleLink = "<a href='/article/create'>Write Article</a>";
-                StringBuilder html = new StringBuilder();
-                html.append("<h1").append(title).append("</h1>").append(createArticleLink);
-                html.append("<hr>");
+            public ModelAndView handle(Request request, Response response) {
+                Map<String, Object> viewObjects = new HashMap<>();
 
                 if (HelloSpark.articles.isEmpty()) {
-                    html.append("<b>No articles have been posted </b>");
+                    viewObjects.put("hasNoArticles","Welcome, please click \"Write Article\" to begin.");
                 } else {
+                    ArrayList<Article> showArticles = new ArrayList<>();
+
                     for (Article article : HelloSpark.articles) {
                         if(article.readable()) {
-                            html.append(article.getTitle())
-                                    .append("<br/>")
-                                    .append(article.getCreatedAt())
-                                    .append("<br/>")
-                                    .append("Summary: " + article.getSummary())
-                                    .append("<br/>")
-                                    .append(article.getEditLink()).append(" | ").append(article.getDeleteLink())
-                                    .append("</p>");
+                            showArticles.add(article);
                         }
 
                     }
+                    viewObjects.put("articles", showArticles);
                 }
-                return html.toString();
+                viewObjects.put("templateName", "articleList.ftl");
+                return modelAndView(viewObjects, "layout.ftl");
             }
         });
 
@@ -163,6 +157,19 @@ public class HelloSpark {
                 response.status(200);
                 response.redirect("/");
                 return "";
+            }
+        });
+
+        get(new FreeMarkerRoute("/freemarker") {
+            @Override
+            public Object handle(Request request, Response response) {
+                Map<String, Object> attributes = new HashMap<>();
+                attributes.put("blogTitle", "Spark Blog!");
+                attributes.put("descriptionTitle", "bootstrap?!?! what!");
+                attributes.put("descriptionBody1", "twitter bootstrap is cool");
+                attributes.put("descriptionBody2", "let's get rolling!");
+
+                return modelAndView(attributes, "layout.ftl");
             }
         });
 
